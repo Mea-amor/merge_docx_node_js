@@ -1,50 +1,81 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const mammoth = require("mammoth");
+const { Document, Packer, Paragraph, TextRun } = require("docx");
+const fs = require("fs");
 const app = express();
+const port = 3000;
 
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    },
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + file.originalname + path.extname(file.originalname));
+  },
 });
+const upload = multer({ storage: storage });
 
-const fileFilter = (req, file, cb) => {
-    const fileTypes = /docx/;
-    const extName = fileTypes.test(path.extname(file.originalname).toLowerCase());
+if (!fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads");
+}
 
-    if (extName) {
-        cb(null, true);
-    } else {
-        cb(new Error('Only .docx files are allowed!'));
-    }
-};
+app.post(
+  "/mergeDocx",
+  upload.fields([
+    { name: "mainFile", maxCount: 1 },
+    {
+      name: "files",
+    },
+  ]),
 
+  async (req, res) => {
+    const mainFile = req.files["mainFile"][0];
+    const annexFiles = req.files["files"];
+    const ouputFile = req.body.directory;
 
-const upload = multer({
-    storage: storage,
-    fileFilter: fileFilter,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-});
-
-app.post('/upload', upload.single('file'), (req, res) => {
+    console.log('req.files : ', req.files);
     try {
-        res.status(200).json({ message: 'File uploaded successfully!', file: req.file });
+      let mainDocText = await mammoth.extractRawText({ path: mainFile.path });
+      let dataContent = [];
+      dataContent.push(new Paragraph(mainDocText.value));
+      fs.unlinkSync(mainFile.path);
+
+      for (let annex of annexFiles) {
+        let annexText = await mammoth.extractRawText({ path: annex.path });
+        dataContent.push(new Paragraph(annexText.value));
+        console.log("annex.path : ", annex.path);
+        fs.unlinkSync(annex.path);
+      }
+
+      const combinedDoc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: [...dataContent],
+          },
+        ],
+      });
+
+      const outputPath = `${ouputFile}\\merged.docx`;
+
+      const buffer = await Packer.toBuffer(combinedDoc);
+      fs.writeFileSync(outputPath, buffer);
+
+     return  res.send({
+        message: "Fichiers fusionnés avec succès.",
+        filePath: outputPath,
+      });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+      if (err.message.includes("no such file or directory")) {
+        return res.status(500).send("Aucun fichier ou répertoire de ce nom");
+      }
+      return res.status(500).send("Erreur lors de la fusion des fichiers.");
     }
-});
+  }
+);
 
-app.use((err, req, res, next) => {
-    if (err instanceof multer.MulterError || err) {
-        return res.status(400).json({ error: err.message });
-    }
-    next(err);
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
