@@ -1,22 +1,22 @@
-const PDFMerger = require('pdf-merger-js');
-const path = require('path');
+const fs = require('fs');
+const { PDFDocument } = require('pdf-lib');
 
-const mergePDFs = async (outputPath, files) => {
-    const merger = new PDFMerger();
+async function mergePDFs(pdfFiles, outputName) {
 
-    for (const file of files) {
-        await merger.add(file); // Add each PDF file to the merger
-    }
+  const mergedPdf = await PDFDocument.create();
 
-    await merger.save(outputPath); // Save the merged PDF
-    console.log(`PDFs merged successfully! Saved at ${outputPath}`);
-};
+  for (const pdfFile of pdfFiles) {
+    const existingPdfBytes = fs.readFileSync(`./uploads/${pdfFile}`);
+    const pdf = await PDFDocument.load(existingPdfBytes);
+    
+    const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPages().map((_, index) => index));
+    copiedPages.forEach(page => mergedPdf.addPage(page));
+    fs.unlinkSync(`./uploads/${pdfFile}`)
+  }
 
-const filesToMerge = [
-    path.join(__dirname, 'file1.pdf'),
-    path.join(__dirname, 'test1.pdf'),
-];
+  const mergedPdfBytes = await mergedPdf.save();
 
-const outputFilePath = path.join(__dirname, 'merged.pdf');
+  fs.writeFileSync(`./${outputName}.pdf`, mergedPdfBytes);
+}
 
-mergePDFs(outputFilePath, filesToMerge).catch(console.error);
+module.exports = { mergePDFs };
