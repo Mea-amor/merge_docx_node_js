@@ -15,7 +15,7 @@ const storage = multer.diskStorage({
     cb(null, "uploads/");
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + file.originalname + path.extname(file.originalname));
+    cb(null, file.originalname + path.extname(file.originalname));
   },
 });
 const upload = multer({ storage: storage });
@@ -41,21 +41,32 @@ app.post(
     const directory = req.body.directory; // R || S
     const outputPathPdfFileMerge = `${typeRepertory}/${directory}/`;
     const pdfFilesPath = [];
+    const filePathToDelete = []
+
+    if (!fsNoPromise.existsSync(typeRepertory)) {
+      fsNoPromise.mkdirSync(typeRepertory);
+    }
+    
+    if (!fsNoPromise.existsSync(outputPathPdfFileMerge)) {
+      fsNoPromise.mkdirSync(outputPathPdfFileMerge); // Creates the R directory inside DG
+    }
 
     try {
-      await main(mainFile.path, mainFile.fieldname)
+      
+      await main(mainFile.path, mainFile.originalname)
         .then((resp) => {
-          fsNoPromise.unlinkSync(mainFile.path);
-          pdfFilesPath.push(`${mainFile.fieldname}.pdf`);
+          filePathToDelete.push(mainFile.path);
+          pdfFilesPath.push(`${mainFile.originalname}.pdf`);
         })
         .catch(function (err) {
           console.log(`Error converting file: ${err}`);
         });
       for (let annex of annexFiles) {
-        await main(annex.path, annex.fieldname)
+
+        await main(annex.path, annex.originalname)
           .then((resp) => {
-            fsNoPromise.unlinkSync(annex.path);
-            pdfFilesPath.push(`${annex.fieldname}.pdf`);
+            filePathToDelete.push(annex.path);
+            pdfFilesPath.push(`${annex.originalname}.pdf`);
           })
           .catch(function (err) {
             console.log(`Error converting file: ${err}`);
@@ -63,9 +74,13 @@ app.post(
       }
 
       console.log("starting script for merging pdf ...");
+      console.log("outputPathPdfFileMerge : ", outputPathPdfFileMerge+ mainFile.originalname);
       mergePDFs(pdfFilesPath, outputPathPdfFileMerge + mainFile.fieldname)
         .then(() => {
           console.log("PDFs merged successfully");
+          // filePathToDelete.forEach(path=>{
+          //   fsNoPromise.unlinkSync(path);
+          // });
           return res.send({
             message: "Fichiers fusionnés avec succès.",
             filePath: "outputPath",
