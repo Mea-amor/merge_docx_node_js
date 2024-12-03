@@ -12,7 +12,7 @@ async function mergePDFs(pdfFiles, outputName) {
     
     const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPages().map((_, index) => index));
     copiedPages.forEach(page => mergedPdf.addPage(page));
-    // fs.unlinkSync(`./uploads/${pdfFile}`)
+    fs.unlinkSync(`./uploads/${pdfFile}`)
   }
 
   const mergedPdfBytes = await mergedPdf.save();

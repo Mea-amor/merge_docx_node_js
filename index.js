@@ -74,13 +74,14 @@ app.post(
       }
 
       console.log("starting script for merging pdf ...");
-      console.log("outputPathPdfFileMerge : ", outputPathPdfFileMerge+ mainFile.originalname);
-      mergePDFs(pdfFilesPath, outputPathPdfFileMerge + mainFile.fieldname)
+      const mergeFilePath = outputPathPdfFileMerge+ mainFile.originalname;
+      
+      mergePDFs(pdfFilesPath, mergeFilePath)
         .then(() => {
           console.log("PDFs merged successfully");
-          // filePathToDelete.forEach(path=>{
-          //   fsNoPromise.unlinkSync(path);
-          // });
+          filePathToDelete.forEach(path=>{
+            fsNoPromise.unlinkSync(path);
+          });
           return res.send({
             message: "Fichiers fusionnés avec succès.",
             filePath: "outputPath",
