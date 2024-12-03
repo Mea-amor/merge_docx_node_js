@@ -37,8 +37,8 @@ app.post(
     console.log("starting script for converting docx to pdf ...");
     const mainFile = req.files["mainFile"][0];
     const annexFiles = req.files["files"];
-    const typeRepertory = req.body.sendTo; // DG || DA
-    const directory = req.body.directory; // R || S
+    const typeRepertory = req.body.sendTo;
+    const directory = req.body.directory;
     const outputPathPdfFileMerge = `${typeRepertory}/${directory}/`;
     const pdfFilesPath = [];
     const filePathToDelete = []
@@ -48,7 +48,7 @@ app.post(
     }
     
     if (!fsNoPromise.existsSync(outputPathPdfFileMerge)) {
-      fsNoPromise.mkdirSync(outputPathPdfFileMerge); // Creates the R directory inside DG
+      fsNoPromise.mkdirSync(outputPathPdfFileMerge);
     }
 
     try {
@@ -75,13 +75,18 @@ app.post(
 
       console.log("starting script for merging pdf ...");
       const mergeFilePath = outputPathPdfFileMerge+ mainFile.originalname;
-      
+
       mergePDFs(pdfFilesPath, mergeFilePath)
         .then(() => {
           console.log("PDFs merged successfully");
           filePathToDelete.forEach(path=>{
             fsNoPromise.unlinkSync(path);
           });
+
+          pdfFilesPath.forEach(path=>{
+            fsNoPromise.unlinkSync(`./uploads/${path}`)
+          })
+
           return res.send({
             message: "Fichiers fusionnés avec succès.",
             filePath: "outputPath",
